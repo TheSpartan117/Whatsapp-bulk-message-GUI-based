@@ -11,6 +11,10 @@ import pandas as pd
 
 DELAY = 10
 SEND_DELAY = 2
+# Brief pause so the button registers the click correctly
+PRE_CLICK_DELAY = 1
+# Wait for WhatsApp Web to process the send before navigating away
+POST_SEND_DELAY = 3
 
 # Chrome user data directory — change this if your Chrome profile is in a different location.
 # Default: %LOCALAPPDATA%\Google\Chrome\User Data
@@ -28,10 +32,10 @@ def _attempt_send(driver, url, name, number, log_fn, delay, send_delay):
 		log_fn("Make sure your phone and computer is connected to the internet.")
 		log_fn("If there is an alert, please dismiss it.")
 		return False
-	sleep(1)
+	sleep(PRE_CLICK_DELAY)
 	click_btn.click()
 	sleep(send_delay)
-	sleep(3)
+	sleep(POST_SEND_DELAY)
 	log_fn(f'Message sent to: {name} ({number})')
 	return True
 
@@ -51,8 +55,16 @@ def send_messages(driver, contacts, template, log_fn=print, stop_event=None, pro
 		number = str(number).strip()
 		if number == "":
 			continue
-		if len(number) == 10 and number.isdigit():
+		if not number.isdigit():
+			log_fn(f"  Skipping {name}: invalid number '{number}' (must contain digits only).")
+			continue
+		# Prepend India country code for bare 10-digit numbers (Indian customers only)
+		if len(number) == 10:
 			number = "91" + number
+		# Validate final length is within E.164 range (10–15 digits)
+		if not (10 <= len(number) <= 15):
+			log_fn(f"  Skipping {name}: number '{number}' has invalid length ({len(number)} digits).")
+			continue
 
 		personalized_message = template
 		for key, value in contact['fields'].items():
@@ -62,6 +74,9 @@ def send_messages(driver, contacts, template, log_fn=print, stop_event=None, pro
 		log_fn(f'\n{idx+1}/{len(contacts)} => Sending message to {name} ({number}).')
 		url = 'https://web.whatsapp.com/send?phone=' + number + '&text=' + encoded_message
 		for i in range(3):
+			if stop_event is not None and stop_event.is_set():
+				log_fn("Sending stopped by user.")
+				return
 			if _attempt_send(driver, url, name, number, log_fn, _delay, _send_delay):
 				if progress_fn is not None:
 					progress_fn(idx + 1, len(contacts))
@@ -69,17 +84,24 @@ def send_messages(driver, contacts, template, log_fn=print, stop_event=None, pro
 			log_fn(f"  Retry {i+1}/3 for {name}...")
 
 def print_intro():
+	"""CLI entry point only — not used by the GUI."""
 	print("\n************************************************************")
 	print("*****                                                   *****")
 	print("*****   THANK YOU FOR USING WHATSAPP BULK MESSENGER     *****")
 	print("*****                                                   *****")
 	print("************************************************************")
 
-def get_message_template() -> str:
-	with open("message.txt", "r", encoding="utf8") as f:
-		template = f.read()
-	print('\nMessage template:')
-	print(template)
+def get_message_template(log_fn=print) -> str:
+	"""Read and return the message template from message.txt."""
+	try:
+		with open("message.txt", "r", encoding="utf8") as f:
+			template = f.read()
+	except FileNotFoundError:
+		raise FileNotFoundError(
+			"message.txt not found. Please create it with your message template."
+		)
+	log_fn('\nMessage template:')
+	log_fn(template)
 	return template
 
 def get_contacts(filepath=None):
@@ -102,9 +124,9 @@ def get_contacts(filepath=None):
 	else:
 		raise ValueError(f"Unsupported file format: {ext}. Use .csv or .xlsx")
 
-	# Normalize column names for internal use, but keep originals for placeholder matching
-	orig_columns = [c.strip() for c in df.columns]
-	df.columns = orig_columns
+	# Normalize column names — use rename() to avoid in-place mutation
+	df = df.rename(columns={c: c.strip() for c in df.columns})
+	orig_columns = list(df.columns)
 
 	required = {'Name', 'Phone Number'}
 	if not required.issubset(set(orig_columns)):
@@ -132,6 +154,7 @@ def get_driver():
 	return driver
 
 def login_whatsapp(driver):
+	"""CLI entry point only — not used by the GUI."""
 	print('Once your browser opens up sign in to web whatsapp')
 	driver.get('https://web.whatsapp.com')
 	input("AFTER logging into Whatsapp Web is complete and your chats are visible, press ENTER...")

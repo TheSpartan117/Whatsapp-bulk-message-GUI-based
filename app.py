@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 import threading
 import queue
 import os
+import sys
 
 import automator
 from automator import get_driver, get_contacts, send_messages
@@ -10,7 +11,13 @@ from automator import get_driver, get_contacts, send_messages
 # ── Constants ──────────────────────────────────────────────────────────────────
 APP_TITLE    = "WhatsApp Bulk Messenger"
 WIN_W, WIN_H = 1100, 750
-MESSAGE_FILE = "message.txt"
+
+# Resolve message.txt relative to the exe (frozen) or the script directory
+if getattr(sys, 'frozen', False):
+    _BASE_DIR = os.path.dirname(sys.executable)
+else:
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MESSAGE_FILE = os.path.join(_BASE_DIR, "message.txt")
 
 IDLE         = "IDLE"
 BROWSER_OPEN = "BROWSER_OPEN"
@@ -425,6 +432,11 @@ class App(ctk.CTk):
         except ValueError:
             _delay = 10
             _send_delay = 2
+        if _delay < 1 or _send_delay < 1:
+            messagebox.showwarning("Invalid Settings",
+                                   "Delay and Send Delay must be at least 1 second.")
+            self.set_state(LOGGED_IN)
+            return
 
         contacts_snapshot = list(self.contacts)
 
@@ -492,6 +504,9 @@ class App(ctk.CTk):
                 msg = self.log_queue.get_nowait()
                 self.log_box.configure(state="normal")
                 self.log_box.insert("end", msg + "\n")
+                line_count = int(self.log_box.index("end-1c").split(".")[0])
+                if line_count > 1000:
+                    self.log_box.delete("1.0", f"{line_count - 1000}.0")
                 self.log_box.configure(state="disabled")
                 self.log_box.see("end")
         except queue.Empty:
@@ -508,8 +523,8 @@ class App(ctk.CTk):
         if self.driver is not None:
             try:
                 self.driver.quit()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Warning: browser cleanup error: {e}", file=sys.stderr)
         self.destroy()
 
 

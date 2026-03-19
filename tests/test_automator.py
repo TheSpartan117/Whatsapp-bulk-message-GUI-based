@@ -1,6 +1,7 @@
 import os
 import sys
 import csv
+import shutil
 import threading
 import tempfile
 import unittest
@@ -30,6 +31,9 @@ class TestGetContacts(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_get_contacts_csv(self):
         """Reads a CSV and returns the correct list of contact dicts."""
@@ -72,13 +76,9 @@ class TestGetContacts(unittest.TestCase):
 
     def test_get_contacts_file_not_found(self):
         """Raises FileNotFoundError when called with no args and no contacts file present."""
-        original_dir = os.getcwd()
-        os.chdir(self.tmpdir)
-        try:
+        with patch('os.path.exists', return_value=False):
             with self.assertRaises(FileNotFoundError):
                 get_contacts()
-        finally:
-            os.chdir(original_dir)
 
 
 # ── send_messages() tests ──────────────────────────────────────────────────────
@@ -151,6 +151,67 @@ class TestSendMessages(unittest.TestCase):
 
         self.assertTrue(any("919876543210" in u for u in urls_called),
                         f"Expected '91' prefix in URL, got: {urls_called}")
+
+    def test_invalid_number_skipped_with_warning(self):
+        """Numbers that fail validation (non-digit chars) are skipped."""
+        driver = MagicMock()
+        log_calls = []
+        contact = {"name": "Bad", "number": "not-a-number", "fields": {"Name": "Bad"}}
+        send_messages(driver, [contact], "Hi", log_fn=log_calls.append)
+        driver.get.assert_not_called()
+
+    def test_already_prefixed_number_not_double_prefixed(self):
+        """Numbers already 12 digits starting with 91 are not double-prefixed."""
+        driver = MagicMock()
+        urls = []
+        driver.get.side_effect = urls.append
+        with patch("automator.WebDriverWait") as mock_wait:
+            mock_wait.return_value.until.return_value = MagicMock()
+            with patch("automator.sleep"):
+                contact = {"name": "Test", "number": "919876543210", "fields": {"Name": "Test"}}
+                send_messages(driver, [contact], "Hi", log_fn=lambda m: None)
+        self.assertTrue(any("919876543210" in u and "91919876543210" not in u for u in urls))
+
+
+# ── Retry logic tests ──────────────────────────────────────────────────────────
+
+class TestRetryLogic(unittest.TestCase):
+
+    def test_retries_on_failure_then_succeeds(self):
+        """_attempt_send is retried up to 3 times; succeeds on second attempt."""
+        driver = MagicMock()
+        log_calls = []
+        call_count = [0]
+
+        def side_effect(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] < 2:
+                raise Exception("timeout")
+            return MagicMock()  # success on 2nd call
+
+        with patch("automator.WebDriverWait") as mock_wait:
+            mock_wait.return_value.until.side_effect = side_effect
+            with patch("automator.sleep"):
+                contact = {"name": "Test", "number": "9999999999", "fields": {"Name": "Test"}}
+                send_messages(driver, [contact], "Hello {Name}",
+                              log_fn=log_calls.append)
+
+        self.assertEqual(call_count[0], 2)
+
+    def test_stops_retrying_after_3_failures(self):
+        """After 3 failures, moves on without raising an exception."""
+        driver = MagicMock()
+        log_calls = []
+
+        with patch("automator.WebDriverWait") as mock_wait:
+            mock_wait.return_value.until.side_effect = Exception("always fails")
+            with patch("automator.sleep"):
+                contact = {"name": "Test", "number": "9999999999", "fields": {"Name": "Test"}}
+                send_messages(driver, [contact], "Hello {Name}",
+                              log_fn=log_calls.append)
+
+        # Should have attempted 3 times
+        self.assertEqual(mock_wait.return_value.until.call_count, 3)
 
 
 if __name__ == "__main__":
