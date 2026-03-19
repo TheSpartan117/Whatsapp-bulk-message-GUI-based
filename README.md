@@ -27,7 +27,6 @@ pip install -r requirements.txt
 | Package | Version |
 |---------|---------|
 | `selenium` | `>=4.10.0` |
-| `webdriver-manager` | latest |
 <!-- END AUTO-GENERATED -->
 
 ChromeDriver is managed automatically by Selenium 4.6+ — no manual installation needed.
@@ -71,7 +70,7 @@ A Chrome window will open to WhatsApp Web. Log in by scanning the QR code (only 
 | Constant | Default | Description |
 |----------|---------|-------------|
 | `DELAY` | `10` | Seconds to wait for the Send button to appear per message |
-| `CHROME_USER_DATA_DIR` | `%LOCALAPPDATA%\Google\Chrome\User Data` | Chrome profile directory used by the browser |
+| `CHROME_USER_DATA_DIR` | `%LOCALAPPDATA%\WABulker\User Data` | Chrome profile directory used by the browser |
 <!-- END AUTO-GENERATED -->
 
 To change the Chrome profile location, edit `CHROME_USER_DATA_DIR` at the top of `automator.py`:

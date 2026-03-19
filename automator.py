@@ -14,7 +14,7 @@ DELAY = 10
 # Default: %LOCALAPPDATA%\Google\Chrome\User Data
 # To use a custom isolated profile instead, set a path like:
 #   os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
-CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'Google', 'Chrome', 'User Data')
+CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
 
 def send_messages(driver, numbers, message):
 	for idx, number in enumerate(numbers):
@@ -40,6 +40,7 @@ def send_messages(driver, numbers, message):
 						sent=True
 						sleep(3)
 						print(f'Message sent to: {number}')
+						break
 		except Exception as e:
 			print(f'Failed to send message to {number}: {e}')
 
@@ -53,9 +54,8 @@ def print_intro():
 	print("************************************************************")
 
 def get_message() -> str:
-	f = open("message.txt", "r", encoding="utf8")
-	message = f.read()
-	f.close()
+	with open("message.txt", "r", encoding="utf8") as f:
+		message = f.read()
 	print('\nThis is your message-')
 	print(message)
 	message = quote(message)
@@ -63,15 +63,14 @@ def get_message() -> str:
 
 def get_numbers() -> list:
 	numbers = []
-	f = open("numbers.txt", "r")
-	for line in f.read().splitlines():
-		number = line.strip()
-		if number == "":
-			continue
-		if len(number) == 10 and number.isdigit():
-			number = "91" + number
-		numbers.append(number)
-	f.close()
+	with open("numbers.txt", "r", encoding="utf8") as f:
+		for line in f.read().splitlines():
+			number = line.strip()
+			if number == "":
+				continue
+			if len(number) == 10 and number.isdigit():
+				number = "91" + number
+			numbers.append(number)
 	return numbers
 
 def get_driver():
@@ -95,7 +94,7 @@ def main():
 	driver = get_driver()
 	login_whatsapp(driver)
 	send_messages(driver, numbers, message)
-	driver.close()
+	driver.quit()
 	print("\nAll done! Thanks for using WhatsApp Bulk Messenger.")
 
 if __name__ == "__main__":
