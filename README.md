@@ -1,15 +1,13 @@
 # WhatsApp Bulk Messenger
 
-Send bulk WhatsApp messages via WhatsApp Web automation using Selenium and Chrome.
-
-Built by [Aishik Das](https://www.github.com/theSpartan117).
+Send personalised bulk WhatsApp messages via WhatsApp Web automation using Selenium and Chrome.
 
 ---
 
 ## Prerequisites
 
 - Windows (required — Chrome profile path is Windows-specific)
-- Python 3.7+
+- Python 3.8+
 - Google Chrome installed
 - Active WhatsApp account
 
@@ -23,36 +21,27 @@ Built by [Aishik Das](https://www.github.com/theSpartan117).
 pip install -r requirements.txt
 ```
 
-<!-- AUTO-GENERATED: requirements.txt -->
 | Package | Version |
 |---------|---------|
 | `selenium` | `>=4.10.0` |
-<!-- END AUTO-GENERATED -->
+| `pandas` | `>=2.0.0` |
+| `openpyxl` | `>=3.1.0` |
 
 ChromeDriver is managed automatically by Selenium 4.6+ — no manual installation needed.
 
-### 2. Add your message
+### 2. Prepare your contacts file
 
-Edit `message.txt` with the message you want to send. Supports Unicode and emoji.
+Create a `contacts.csv` or `contacts.xlsx` file with at minimum a `Name` column and a `Phone Number` column. Add any additional columns you want to use as placeholders in your message template.
 
-```
-Hello,
+Example columns: `Name`, `Phone Number`, `Message`, `Remarks`, `Remarks1`, `Remarks2`, `Remarks3`
 
-This is my message.
+See the [Input Files](#input-files) section for full details.
 
-Thank you
-```
+### 3. Write your message template
 
-### 3. Add phone numbers
+Edit `message.txt` with the message you want to send. Use `{ColumnName}` placeholders that map to column names in your contacts file.
 
-Edit `numbers.txt` with one number per line. **Indian numbers only — enter 10 digits without the country code.** The `91` prefix is added automatically.
-
-```
-9876543210
-8123456789
-```
-
-Blank lines are ignored.
+See the [Personalisation](#personalisation) section for full details.
 
 ### 4. Run
 
@@ -64,33 +53,86 @@ A Chrome window will open to WhatsApp Web. Log in by scanning the QR code (only 
 
 ---
 
+## Input Files
+
+### `message.txt`
+
+The message template sent to each contact. Use `{ColumnName}` placeholders — each placeholder must match a column name in your contacts file exactly (case-sensitive).
+
+```
+Hello {Name},
+
+This is {Remarks1} my text, {Remarks2} to you from automated {Message} messaging system.
+
+Thank You
+```
+
+Supports Unicode and emoji.
+
+### `contacts.csv` or `contacts.xlsx`
+
+The contacts file. Required columns:
+
+| Column | Description |
+|--------|-------------|
+| `Name` | Contact's name, available as `{Name}` in the template |
+| `Phone Number` | Full phone number including country code (e.g. `919876543210`) |
+
+Any additional columns are automatically available as `{ColumnName}` placeholders in `message.txt`. There is no limit on the number of custom columns.
+
+Example CSV:
+
+```
+Name,Phone Number,Message,Remarks1,Remarks2
+Alice,919876543210,Hello,great,wonderful
+Bob,918123456789,Hi,nice,amazing
+```
+
+> Note: `numbers.txt` is no longer used. Phone numbers must be provided in the contacts file.
+
+---
+
+## Personalisation
+
+Every column in the contacts file (except `Phone Number`) is available as a `{ColumnName}` placeholder in `message.txt`. The placeholder name must match the column header exactly, including capitalisation.
+
+To add a new personalisation field:
+
+1. Add a new column to `contacts.csv` or `contacts.xlsx`.
+2. Reference it in `message.txt` using `{YourNewColumnName}`.
+
+Each contact receives a uniquely rendered message with their own values substituted in.
+
+---
+
 ## Configuration
 
-<!-- AUTO-GENERATED: automator.py constants -->
+The following constants are defined at the top of `automator.py`:
+
 | Constant | Default | Description |
 |----------|---------|-------------|
 | `DELAY` | `10` | Seconds to wait for the Send button to appear per message |
-| `CHROME_USER_DATA_DIR` | `%LOCALAPPDATA%\WABulker\User Data` | Chrome profile directory used by the browser |
-<!-- END AUTO-GENERATED -->
+| `SEND_DELAY` | `2` | Seconds to wait after clicking Send before moving to the next contact |
+| `CHROME_USER_DATA_DIR` | `%LOCALAPPDATA%\WABulker\User Data` | Chrome profile directory used to persist the WhatsApp Web session |
 
 To change the Chrome profile location, edit `CHROME_USER_DATA_DIR` at the top of `automator.py`:
 
 ```python
-# Custom isolated profile (won't share your regular Chrome session)
 CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
 ```
 
-> **Note:** Chrome must be fully closed before running the script. Selenium cannot attach to an already-open Chrome instance using the same profile.
+> Note: Chrome must be fully closed before running the script. Selenium cannot attach to an already-open Chrome instance that is using the same profile.
 
 ---
 
 ## How It Works
 
-1. Reads `message.txt` and URL-encodes the content
-2. Reads `numbers.txt`, auto-prefixes 10-digit numbers with `91`
-3. Opens Chrome using your existing Chrome profile
-4. Navigates to `web.whatsapp.com/send?phone=<number>&text=<message>` for each number
-5. Waits up to `DELAY` seconds for the Send button, clicks it, retries up to 3 times on failure
+1. Reads `message.txt` as a template.
+2. Reads `contacts.csv` or `contacts.xlsx` to load contacts and their personalisation data.
+3. For each contact, substitutes all `{ColumnName}` placeholders with the contact's values to produce a personalised message.
+4. Opens Chrome using the configured profile (persists your WhatsApp Web login between runs).
+5. Navigates to `web.whatsapp.com/send?phone=<number>&text=<message>` for each contact.
+6. Waits up to `DELAY` seconds for the Send button to appear, clicks it, then waits `SEND_DELAY` seconds before proceeding to the next contact.
 
 ---
 
@@ -98,7 +140,9 @@ CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'Use
 
 | Issue | Fix |
 |-------|-----|
-| "Profile is already in use" | Close all Chrome windows before running |
-| Send button not found | Check internet connection; dismiss any WhatsApp alerts |
-| Number not receiving message | Ensure the number is on WhatsApp and format is correct (10 digits) |
-| ChromeDriver error | Update Chrome to the latest version |
+| "Profile is already in use" | Close all Chrome windows before running the script |
+| Send button not found | Check your internet connection; dismiss any WhatsApp pop-ups or alerts |
+| Contact not receiving the message | Ensure the phone number is correct, includes the country code, and the number is registered on WhatsApp |
+| Placeholder not replaced | Check that the `{ColumnName}` in `message.txt` matches the column header in your contacts file exactly (case-sensitive) |
+| ChromeDriver error | Update Google Chrome to the latest version |
+| `ModuleNotFoundError` | Run `pip install -r requirements.txt` to install all dependencies |

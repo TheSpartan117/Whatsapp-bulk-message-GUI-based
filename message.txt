@@ -1,5 +1,5 @@
-Hello World,
+Hello {Name},
 
-This is my text to you from automated messaging system. Test 1
+This is {Remarks1} my, {Remarks2} text, {Remarks} to you, {Remarks3} from automated {Message} messaging system.
 
 Thank You
