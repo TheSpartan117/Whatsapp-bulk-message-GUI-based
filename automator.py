@@ -7,6 +7,7 @@ from selenium.webdriver.chrome.service import Service
 from time import sleep
 from urllib.parse import quote
 import os
+import platform
 import pandas as pd
 
 DELAY = 10
@@ -16,11 +17,14 @@ PRE_CLICK_DELAY = 1
 # Wait for WhatsApp Web to process the send before navigating away
 POST_SEND_DELAY = 3
 
-# Chrome user data directory — change this if your Chrome profile is in a different location.
-# Default: %LOCALAPPDATA%\Google\Chrome\User Data
-# To use a custom isolated profile instead, set a path like:
-#   os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
-CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
+# Chrome user data directory — isolated WABulker profile, per OS.
+_sys = platform.system()
+if _sys == 'Windows':
+    CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
+elif _sys == 'Darwin':
+    CHROME_USER_DATA_DIR = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', 'WABulker')
+else:  # Linux
+    CHROME_USER_DATA_DIR = os.path.join(os.path.expanduser('~'), '.config', 'WABulker')
 
 def _attempt_send(driver, url, name, number, log_fn, delay, send_delay):
 	driver.get(url)
