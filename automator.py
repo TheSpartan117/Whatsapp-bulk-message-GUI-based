@@ -18,8 +18,33 @@ SEND_DELAY = 2
 #   os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
 CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
 
-def send_messages(driver, contacts, template):
+def _attempt_send(driver, url, name, number, log_fn, delay, send_delay):
+	driver.get(url)
+	try:
+		click_btn = WebDriverWait(driver, delay).until(
+			EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Send']")))
+	except Exception as e:
+		log_fn(f"\nCould not send to {name} ({number}): {e}")
+		log_fn("Make sure your phone and computer is connected to the internet.")
+		log_fn("If there is an alert, please dismiss it.")
+		return False
+	sleep(1)
+	click_btn.click()
+	sleep(send_delay)
+	sleep(3)
+	log_fn(f'Message sent to: {name} ({number})')
+	return True
+
+
+def send_messages(driver, contacts, template, log_fn=print, stop_event=None, progress_fn=None, delay=None, send_delay=None):
+	_delay = delay if delay is not None else DELAY
+	_send_delay = send_delay if send_delay is not None else SEND_DELAY
+
 	for idx, contact in enumerate(contacts):
+		if stop_event is not None and stop_event.is_set():
+			log_fn("Sending stopped by user.")
+			break
+
 		name = contact['name']
 		number = contact['number']
 
@@ -34,29 +59,14 @@ def send_messages(driver, contacts, template):
 			personalized_message = personalized_message.replace('{' + key + '}', value)
 		encoded_message = quote(personalized_message)
 
-		print(f'\n{idx+1}/{len(contacts)} => Sending message to {name} ({number}).')
-		try:
-			url = 'https://web.whatsapp.com/send?phone=' + number + '&text=' + encoded_message
-			sent = False
-			for i in range(3):
-				if not sent:
-					driver.get(url)
-					try:
-						click_btn = WebDriverWait(driver, DELAY).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Send']")))
-					except Exception as e:
-						print(f"\nFailed to send message to: {name} ({number}), retry ({i+1}/3)")
-						print("Make sure your phone and computer is connected to the internet.")
-						print("If there is an alert, please dismiss it.")
-					else:
-						sleep(1)
-						click_btn.click()
-						sleep(SEND_DELAY)
-						sent = True
-						sleep(3)
-						print(f'Message sent to: {name} ({number})')
-						break
-		except Exception as e:
-			print(f'Failed to send message to {name} ({number}): {e}')
+		log_fn(f'\n{idx+1}/{len(contacts)} => Sending message to {name} ({number}).')
+		url = 'https://web.whatsapp.com/send?phone=' + number + '&text=' + encoded_message
+		for i in range(3):
+			if _attempt_send(driver, url, name, number, log_fn, _delay, _send_delay):
+				if progress_fn is not None:
+					progress_fn(idx + 1, len(contacts))
+				break
+			log_fn(f"  Retry {i+1}/3 for {name}...")
 
 def print_intro():
 	print("\n************************************************************")

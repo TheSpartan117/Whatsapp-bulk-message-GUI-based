@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show:*)",
+      "Bash(.venv/Scripts/python -m pytest tests/ -v 2>&1)",
+      "Bash(.venv/Scripts/python -m unittest discover -s tests -v 2>&1)"
+    ]
+  }
+}
