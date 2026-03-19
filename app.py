@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 import threading
 import queue
 import os
+import shutil
 import sys
 
 import automator
@@ -12,12 +13,10 @@ from automator import get_driver, get_contacts, send_messages
 APP_TITLE    = "WhatsApp Bulk Messenger"
 WIN_W, WIN_H = 1100, 750
 
-# Resolve message.txt relative to the exe (frozen) or the script directory
-if getattr(sys, 'frozen', False):
-    _BASE_DIR = os.path.dirname(sys.executable)
-else:
-    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MESSAGE_FILE = os.path.join(_BASE_DIR, "message.txt")
+# Resolve bundled data files: sys._MEIPASS when frozen, script dir otherwise
+_BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+MESSAGE_FILE  = os.path.join(_BASE_DIR, "message.txt")
+SAMPLE_FILE   = os.path.join(_BASE_DIR, "contacts.example.csv")
 
 IDLE         = "IDLE"
 BROWSER_OPEN = "BROWSER_OPEN"
@@ -127,6 +126,10 @@ class App(ctk.CTk):
         btn_row.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 4))
         ctk.CTkButton(btn_row, text="Import CSV / Excel", width=140,
                       command=self._import_contacts
+                      ).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(btn_row, text="Sample CSV", width=90,
+                      fg_color="#2e7d32", hover_color="#1b5e20",
+                      command=self._download_sample
                       ).pack(side="left", padx=(0, 4))
         ctk.CTkButton(btn_row, text="Add Row", width=80,
                       command=self._add_row
@@ -290,6 +293,24 @@ class App(ctk.CTk):
         self.status_lbl.configure(text=f"{len(contacts)} contacts loaded")
         self._update_placeholder_hint()
         self._log(f"Loaded {len(contacts)} contacts from {os.path.basename(path)}")
+
+    def _download_sample(self):
+        if not os.path.exists(SAMPLE_FILE):
+            messagebox.showerror("Not Available",
+                                 "Sample file not found in this installation.")
+            return
+        dest = filedialog.asksaveasfilename(
+            title="Save Sample CSV",
+            defaultextension=".csv",
+            initialfile="contacts.example.csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+        if not dest:
+            return
+        try:
+            shutil.copy2(SAMPLE_FILE, dest)
+            self._log(f"Sample saved to {dest}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not save sample:\n{e}")
 
     def _rebuild_treeview(self):
         self.tree.delete(*self.tree.get_children())

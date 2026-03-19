@@ -11,11 +11,13 @@ Two entry points are available:
 
 A pre-built Windows executable (`WhatsAppBulkMessenger.exe`) is available in the [Releases](../../releases) section — no Python installation required.
 
+A pre-built macOS app (`WhatsAppBulkMessenger.dmg`) is also available in the Releases section — no Python installation required. Drag the app to your Applications folder after opening the DMG.
+
 ---
 
 ## Prerequisites
 
-- **Windows** (Chrome profile path is Windows-specific)
+- **Windows and macOS** (Linux untested)
 - **Python 3.8+** (not needed if using the `.exe`)
 - **Google Chrome** installed (required for both the Python app and the `.exe`)
 - Active WhatsApp account
@@ -70,10 +72,11 @@ python automator.py
 1. **Launch Browser & Login** — opens Chrome to WhatsApp Web
 2. **Scan QR / confirm session** — only required on first run; the profile is persisted
 3. **I'm Logged In ✓** — confirms login and enables the Start button
-4. **Import CSV / Excel** — loads your contacts file; the table populates dynamically
-5. **Edit template** — write or paste your message in the right panel; `{placeholders}` are shown automatically
-6. **Start ▶** — begins sending; progress bar and log update in real time
-7. **Stop ■** — stops after the current message completes
+4. **Sample CSV** — downloads `contacts.example.csv` as a starting template
+5. **Import CSV / Excel** — loads your contacts file; the table populates dynamically
+6. **Edit template** — write or paste your message in the right panel; `{placeholders}` are shown automatically
+7. **Start ▶** — begins sending; progress bar and log update in real time
+8. **Stop ■** — stops after the current message completes
 
 The GUI supports Dark / Light / System themes and keeps the log capped at 1 000 lines.
 
@@ -102,9 +105,11 @@ Required columns:
 | Column | Description |
 |--------|-------------|
 | `Name` | Contact's display name; available as `{Name}` in the template |
-| `Phone Number` | **10-digit Indian mobile number** (e.g. `9876543210`) — the `91` country code is prepended automatically. Numbers already containing the country code (12-digit, e.g. `919876543210`) are sent as-is. |
+| `Phone Number` | **10-digit Indian mobile number** (e.g. `9876543210`) — the `91` country code is prepended automatically. Numbers already containing the country code (12-digit, e.g. `919876543210`) are sent as-is. For international contacts, include the full country code (e.g. `447911123456` for UK). |
 
 Any additional columns are automatically available as `{ColumnName}` placeholders. There is no limit on the number of custom columns.
+
+A sample file (`contacts.example.csv`) is included in the repository as a starting point.
 
 **Example CSV:**
 ```
@@ -122,7 +127,7 @@ Bob,8123456789,Hi,nice,amazing
 Every column except `Phone Number` is available as a `{ColumnName}` placeholder. The name must match the column header exactly, including capitalisation.
 
 To add a new field:
-1. Add a column to `contacts.csv` or `contacts.xlsx`.
+1. Add a column to your contacts file (`contacts.csv` / `contacts.xlsx`; copy `contacts.example.csv` as a starting point).
 2. Reference it in `message.txt` as `{YourNewColumnName}`.
 
 ---
@@ -136,20 +141,24 @@ To add a new field:
 | `SEND_DELAY` | `2` | Seconds to wait after clicking Send before moving to the next contact (configurable in the GUI settings bar) |
 | `PRE_CLICK_DELAY` | `1` | Fixed pause before clicking Send so the button registers correctly |
 | `POST_SEND_DELAY` | `3` | Fixed pause after Send to allow WhatsApp Web to process before navigating away |
-| `CHROME_USER_DATA_DIR` | `%LOCALAPPDATA%\WABulker\User Data` | Chrome profile directory used to persist the WhatsApp Web session |
+| `CHROME_USER_DATA_DIR` | OS-specific | Chrome profile directory used to persist the WhatsApp Web session; automatically set per platform |
 <!-- END AUTO-GENERATED -->
 
-To change the Chrome profile location, edit `CHROME_USER_DATA_DIR` in `automator.py`:
+The Chrome profile location is automatically set based on your operating system:
 
-```python
-CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
-```
+- **Windows:** `%LOCALAPPDATA%\WABulker\User Data`
+- **macOS:** `~/Library/Application Support/WABulker`
+- **Linux:** `~/.config/WABulker`
+
+To override, edit `CHROME_USER_DATA_DIR` in `automator.py`.
 
 > Chrome must be fully closed before launching the app. Selenium cannot attach to an already-open Chrome instance using the same profile.
 
 ---
 
 ## Building the Executable
+
+### Windows
 
 To produce a standalone `WhatsAppBulkMessenger.exe`:
 
@@ -164,6 +173,18 @@ pyinstaller --noconfirm --onefile --windowed --collect-data customtkinter --name
 Output is placed in `dist/WhatsAppBulkMessenger.exe` (~44 MB). The exe bundles all Python dependencies; the target machine only needs Google Chrome.
 
 A `message.txt` file is read from and written to the same directory as the `.exe`.
+
+### macOS
+
+To produce a standalone `WhatsAppBulkMessenger.dmg`:
+
+```bash
+./build_mac.sh
+```
+
+The script creates a `.dmg` containing the macOS app bundle with bundled `message.txt` and `contacts.example.csv`. Simply drag the app to your Applications folder after mounting the DMG.
+
+Requires Xcode command-line tools and `python3` in your PATH.
 
 ---
 

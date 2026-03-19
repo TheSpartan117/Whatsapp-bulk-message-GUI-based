@@ -14,8 +14,10 @@ source "${VENV_DIR}/bin/activate"
 echo "==> Installing build dependencies..."
 pip install -r requirements-dev.txt
 
+[ -f contacts.example.csv ] || { echo "ERROR: contacts.example.csv not found. Cannot bundle sample file."; exit 1; }
+
 echo "==> Cleaning previous build..."
-rm -rf build "${DIST_DIR}/${APP_NAME}.app" "${DIST_DIR}/${DMG_NAME}"
+rm -rf build "${DIST_DIR}/${APP_NAME}" "${DIST_DIR}/${APP_NAME}.app" "${DIST_DIR}/${DMG_NAME}"
 
 echo "==> Building .app with PyInstaller..."
 python3 -m PyInstaller \
@@ -23,7 +25,7 @@ python3 -m PyInstaller \
     --name "${APP_NAME}" \
     --collect-data customtkinter \
     --add-data "message.txt:." \
-    --add-data "contacts.csv:." \
+    --add-data "contacts.example.csv:." \
     app.py
 
 echo "==> Creating .dmg..."

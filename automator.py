@@ -8,6 +8,7 @@ from time import sleep
 from urllib.parse import quote
 import os
 import platform
+import sys
 import pandas as pd
 
 DELAY = 10
@@ -17,10 +18,13 @@ PRE_CLICK_DELAY = 1
 # Wait for WhatsApp Web to process the send before navigating away
 POST_SEND_DELAY = 3
 
+# Bundled data-file directory: sys._MEIPASS when frozen, script dir otherwise.
+_BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+
 # Chrome user data directory — isolated WABulker profile, per OS.
 _sys = platform.system()
 if _sys == 'Windows':
-    CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
+    CHROME_USER_DATA_DIR = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'WABulker', 'User Data')
 elif _sys == 'Darwin':
     CHROME_USER_DATA_DIR = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', 'WABulker')
 else:  # Linux
@@ -98,7 +102,7 @@ def print_intro():
 def get_message_template(log_fn=print) -> str:
 	"""Read and return the message template from message.txt."""
 	try:
-		with open("message.txt", "r", encoding="utf8") as f:
+		with open(os.path.join(_BASE_DIR, "message.txt"), "r", encoding="utf8") as f:
 			template = f.read()
 	except FileNotFoundError:
 		raise FileNotFoundError(
@@ -110,9 +114,14 @@ def get_message_template(log_fn=print) -> str:
 
 def get_contacts(filepath=None):
 	if filepath is None:
+		# Search bundle dir first, then CWD; deduplicate when they are the same path.
 		for fname in ['contacts.xlsx', 'contacts.csv']:
-			if os.path.exists(fname):
-				filepath = fname
+			for directory in dict.fromkeys([_BASE_DIR, os.getcwd()]):
+				candidate = os.path.join(directory, fname)
+				if os.path.exists(candidate):
+					filepath = candidate
+					break
+			if filepath is not None:
 				break
 		if filepath is None:
 			raise FileNotFoundError(
