@@ -8,19 +8,13 @@ from time import sleep
 from urllib.parse import quote
 import os
 
-DELAY = 30
+DELAY = 10
 
-def get_user_data_dir():
-    """Returns the default user data directory path based on the operating system."""
-    if os.name == 'nt':  # Windows
-        return os.path.join(os.environ['LOCALAPPDATA'], 'AnirudhBagri', 'WABulker', 'User Data')
-    elif os.name == 'posix': 
-        if os.uname()[0] == 'Darwin': 
-            return os.path.join(os.environ['HOME'], 'Library', 'AnirudhBagri', 'WABulker', 'User Data')
-        else: 
-            return os.path.join(os.environ['HOME'], '.config', 'anirudhbagri', 'wabulker', 'user_data')
-    else:
-        raise Exception("Unsupported operating system")
+# Chrome user data directory — change this if your Chrome profile is in a different location.
+# Default: %LOCALAPPDATA%\Google\Chrome\User Data
+# To use a custom isolated profile instead, set a path like:
+#   os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
+CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'Google', 'Chrome', 'User Data')
 
 def send_messages(driver, numbers, message):
 	for idx, number in enumerate(numbers):
@@ -51,12 +45,12 @@ def send_messages(driver, numbers, message):
 
 def print_intro():
 	print("\n**********************************************************")
-	print("*****                                               ******")
-	print("*****  THANK YOU FOR USING WHATSAPP BULK MESSENGER  ******")
-	print("*****      This tool was built by Anirudh Bagri     ******")
-	print("*****           www.github.com/anirudhbagri         ******")
-	print("*****                                               ******")
-	print("**********************************************************")
+	print("*****                                                 ******")
+	print("*****  THANK YOU FOR USING WHATSAPP BULK MESSENGER    ******")
+	print("*****      This tool was built by Aishik Das          ******")
+	print("*****           www.github.com/theSpartan117          ******")
+	print("*****                                                 ******")
+	print("************************************************************")
 
 def get_message() -> str:
 	f = open("message.txt", "r", encoding="utf8")
@@ -71,8 +65,12 @@ def get_numbers() -> list:
 	numbers = []
 	f = open("numbers.txt", "r")
 	for line in f.read().splitlines():
-		if line.strip() != "":
-			numbers.append(line.strip())
+		number = line.strip()
+		if number == "":
+			continue
+		if len(number) == 10 and number.isdigit():
+			number = "91" + number
+		numbers.append(number)
 	f.close()
 	return numbers
 
@@ -80,7 +78,7 @@ def get_driver():
 	options = Options()
 	options.add_experimental_option("excludeSwitches", ["enable-logging"])
 	options.add_argument("--profile-directory=Default")
-	options.add_argument("--user-data-dir=" + get_user_data_dir())
+	options.add_argument("--user-data-dir=" + CHROME_USER_DATA_DIR)
 	driver = webdriver.Chrome(service=Service(), options=options)
 	return driver
 

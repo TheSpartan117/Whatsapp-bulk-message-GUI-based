@@ -1,32 +1,105 @@
-# Whatsapp-Bulk-Messenger
+# WhatsApp Bulk Messenger
 
-Whatsapp Bulk Messenger automates sending of messages via Whatsapp Web. The tool can you used to send whatsapp message in bulk. Program uses runs through a list of numbers provided in numbers.txt and then tries to send a prediefined (but templated) message to each number in the list. It can also read other columns from the number csv to populate template specific words and then send out a personalized message to the number
+Send bulk WhatsApp messages via WhatsApp Web automation using Selenium and Chrome.
 
-Note: The current program is limited to sending only TEXT message
+Built by [Aishik Das](https://www.github.com/theSpartan117).
 
-Note: Another version of similar project is available which supports sending media and documents along with text. As per many requests, I have added a [video here](https://youtu.be/NNkAh5sLEok) demonstrating how the app works. Please reach out to me on [email](mailto:bagrianirudh@gmail.com) for more enquiry. Join the [google group here](https://groups.google.com/g/whatsapp-bulker/) and [telegram group here](https://t.me/whatsapp_bulker).
+---
 
-# Requirements
+## Prerequisites
 
-*  Python >= 3.6
-*  Chrome headless is installed by the program automatically
+- Windows (required — Chrome profile path is Windows-specific)
+- Python 3.7+
+- Google Chrome installed
+- Active WhatsApp account
 
-# Setup
+---
 
-1. Install python - >=v3.6
-2. Run `pip install -r requirements.txt`
+## Setup
 
-# Steps
+### 1. Install dependencies
 
-1. Enter the message you want to send inside `message.txt` file.
-2. Enter the list of numbers line-separated in `numbers.txt` file.
-3. Run `python automator.py`.
-4. Once the program starts, you'll see the message in message.txt and count of numbers in the numbers.txt file.
-5. After a while, Chrome should pop-up and open web.whatsapp.com.
-6. Scan the QR code to login into whatsapp.
-7. Press `Enter` to start sending out messages.
-8. Sit back and relax!
+```bash
+pip install -r requirements.txt
+```
 
-### Funding
+<!-- AUTO-GENERATED: requirements.txt -->
+| Package | Version |
+|---------|---------|
+| `selenium` | `>=4.10.0` |
+| `webdriver-manager` | latest |
+<!-- END AUTO-GENERATED -->
 
-If you like this app, I'd appreciate it if you could make a donation via [Buy Me a Coffee](https://www.buymeacoffee.com/anirudhbagri) or [PayPal.Me](https://paypal.me/AnirudhBagri?locale.x=en_GB).
+ChromeDriver is managed automatically by Selenium 4.6+ — no manual installation needed.
+
+### 2. Add your message
+
+Edit `message.txt` with the message you want to send. Supports Unicode and emoji.
+
+```
+Hello,
+
+This is my message.
+
+Thank you
+```
+
+### 3. Add phone numbers
+
+Edit `numbers.txt` with one number per line. **Indian numbers only — enter 10 digits without the country code.** The `91` prefix is added automatically.
+
+```
+9876543210
+8123456789
+```
+
+Blank lines are ignored.
+
+### 4. Run
+
+```bash
+python automator.py
+```
+
+A Chrome window will open to WhatsApp Web. Log in by scanning the QR code (only required on first run). Once your chats are visible, press **Enter** in the terminal to begin sending.
+
+---
+
+## Configuration
+
+<!-- AUTO-GENERATED: automator.py constants -->
+| Constant | Default | Description |
+|----------|---------|-------------|
+| `DELAY` | `10` | Seconds to wait for the Send button to appear per message |
+| `CHROME_USER_DATA_DIR` | `%LOCALAPPDATA%\Google\Chrome\User Data` | Chrome profile directory used by the browser |
+<!-- END AUTO-GENERATED -->
+
+To change the Chrome profile location, edit `CHROME_USER_DATA_DIR` at the top of `automator.py`:
+
+```python
+# Custom isolated profile (won't share your regular Chrome session)
+CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'User Data')
+```
+
+> **Note:** Chrome must be fully closed before running the script. Selenium cannot attach to an already-open Chrome instance using the same profile.
+
+---
+
+## How It Works
+
+1. Reads `message.txt` and URL-encodes the content
+2. Reads `numbers.txt`, auto-prefixes 10-digit numbers with `91`
+3. Opens Chrome using your existing Chrome profile
+4. Navigates to `web.whatsapp.com/send?phone=<number>&text=<message>` for each number
+5. Waits up to `DELAY` seconds for the Send button, clicks it, retries up to 3 times on failure
+
+---
+
+## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| "Profile is already in use" | Close all Chrome windows before running |
+| Send button not found | Check internet connection; dismiss any WhatsApp alerts |
+| Number not receiving message | Ensure the number is on WhatsApp and format is correct (10 digits) |
+| ChromeDriver error | Update Chrome to the latest version |
