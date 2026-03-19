@@ -76,7 +76,7 @@ The contacts file. Required columns:
 | Column | Description |
 |--------|-------------|
 | `Name` | Contact's name, available as `{Name}` in the template |
-| `Phone Number` | Full phone number including country code (e.g. `919876543210`) |
+| `Phone Number` | 10-digit Indian mobile number (e.g. `9876543210`) — the `91` country code is added automatically |
 
 Any additional columns are automatically available as `{ColumnName}` placeholders in `message.txt`. There is no limit on the number of custom columns.
 
@@ -84,8 +84,8 @@ Example CSV:
 
 ```
 Name,Phone Number,Message,Remarks1,Remarks2
-Alice,919876543210,Hello,great,wonderful
-Bob,918123456789,Hi,nice,amazing
+Alice,9876543210,Hello,great,wonderful
+Bob,8123456789,Hi,nice,amazing
 ```
 
 > Note: `numbers.txt` is no longer used. Phone numbers must be provided in the contacts file.
@@ -142,7 +142,7 @@ CHROME_USER_DATA_DIR = os.path.join(os.environ['LOCALAPPDATA'], 'WABulker', 'Use
 |-------|-----|
 | "Profile is already in use" | Close all Chrome windows before running the script |
 | Send button not found | Check your internet connection; dismiss any WhatsApp pop-ups or alerts |
-| Contact not receiving the message | Ensure the phone number is correct, includes the country code, and the number is registered on WhatsApp |
+| Contact not receiving the message | Ensure the phone number is a valid 10-digit Indian number and is registered on WhatsApp |
 | Placeholder not replaced | Check that the `{ColumnName}` in `message.txt` matches the column header in your contacts file exactly (case-sensitive) |
 | ChromeDriver error | Update Google Chrome to the latest version |
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` to install all dependencies |
