@@ -8,6 +8,7 @@ from time import sleep
 from urllib.parse import quote
 import os
 import platform
+import re
 import sys
 import pandas as pd
 
@@ -17,6 +18,8 @@ SEND_DELAY = 2
 PRE_CLICK_DELAY = 1
 # Wait for WhatsApp Web to process the send before navigating away
 POST_SEND_DELAY = 3
+# Maximum allowed file size for contacts files (10 MB)
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 # Bundled data-file directory: sys._MEIPASS when frozen, script dir otherwise.
 _BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -36,7 +39,10 @@ def _attempt_send(driver, url, name, number, log_fn, delay, send_delay):
 		click_btn = WebDriverWait(driver, delay).until(
 			EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Send']")))
 	except Exception as e:
-		log_fn(f"\nCould not send to {name} ({number}): {e}")
+		# Use only the exception type — raw Selenium messages can expose
+		# internal browser state (CDP session IDs, WebDriver paths, etc.)
+		err_type = type(e).__name__
+		log_fn(f"\nCould not send to {name} ({number}): {err_type}")
 		log_fn("Make sure your phone and computer is connected to the internet.")
 		log_fn("If there is an alert, please dismiss it.")
 		return False
@@ -48,7 +54,7 @@ def _attempt_send(driver, url, name, number, log_fn, delay, send_delay):
 	return True
 
 
-def send_messages(driver, contacts, template, log_fn=print, stop_event=None, progress_fn=None, delay=None, send_delay=None):
+def send_messages(driver, contacts, template, log_fn=print, stop_event=None, progress_fn=None, delay=None, send_delay=None, country_code="91"):
 	_delay = delay if delay is not None else DELAY
 	_send_delay = send_delay if send_delay is not None else SEND_DELAY
 
@@ -66,21 +72,29 @@ def send_messages(driver, contacts, template, log_fn=print, stop_event=None, pro
 		if not number.isdigit():
 			log_fn(f"  Skipping {name}: invalid number '{number}' (must contain digits only).")
 			continue
-		# Prepend India country code for bare 10-digit numbers (Indian customers only)
-		if len(number) == 10:
-			number = "91" + number
+		# Prepend country code for bare 10-digit numbers
+		if len(number) == 10 and country_code:
+			number = country_code + number
 		# Validate final length is within E.164 range (10–15 digits)
 		if not (10 <= len(number) <= 15):
 			log_fn(f"  Skipping {name}: number '{number}' has invalid length ({len(number)} digits).")
 			continue
 
-		personalized_message = template
-		for key, value in contact['fields'].items():
-			personalized_message = personalized_message.replace('{' + key + '}', value)
+		# Single-pass substitution prevents second-order injection where a
+		# field value containing '{OtherKey}' would be re-expanded in a loop.
+		fields = contact['fields']
+		personalized_message = re.sub(
+			r'\{([^{}]+)\}',
+			lambda m: fields.get(m.group(1), m.group(0)),
+			template
+		)
+		remaining = re.findall(r'\{[^{}]+\}', personalized_message)
+		if remaining:
+			log_fn(f"  Warning: unresolved placeholders {remaining} — check column names.")
 		encoded_message = quote(personalized_message)
 
 		log_fn(f'\n{idx+1}/{len(contacts)} => Sending message to {name} ({number}).')
-		url = 'https://web.whatsapp.com/send?phone=' + number + '&text=' + encoded_message
+		url = 'https://web.whatsapp.com/send?phone=' + quote(number, safe='') + '&text=' + encoded_message
 		for i in range(3):
 			if stop_event is not None and stop_event.is_set():
 				log_fn("Sending stopped by user.")
@@ -130,12 +144,20 @@ def get_contacts(filepath=None):
 			)
 
 	ext = os.path.splitext(filepath)[1].lower()
+	if ext not in ('.csv', '.xlsx'):
+		raise ValueError(f"Unsupported file format: {ext}. Use .csv or .xlsx")
+
+	file_size = os.path.getsize(filepath)
+	if file_size > MAX_FILE_SIZE:
+		raise ValueError(
+			f"File is too large ({file_size // 1024 // 1024} MB). "
+			f"Maximum allowed size is {MAX_FILE_SIZE // 1024 // 1024} MB."
+		)
+
 	if ext == '.xlsx':
 		df = pd.read_excel(filepath)
-	elif ext == '.csv':
-		df = pd.read_csv(filepath)
 	else:
-		raise ValueError(f"Unsupported file format: {ext}. Use .csv or .xlsx")
+		df = pd.read_csv(filepath)
 
 	# Normalize column names — use rename() to avoid in-place mutation
 	df = df.rename(columns={c: c.strip() for c in df.columns})

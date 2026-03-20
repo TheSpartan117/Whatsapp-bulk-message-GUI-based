@@ -24,6 +24,7 @@ python3 -m PyInstaller \
     --windowed \
     --name "${APP_NAME}" \
     --collect-data customtkinter \
+    --collect-all selenium \
     --add-data "message.txt:." \
     --add-data "contacts.example.csv:." \
     app.py
@@ -35,6 +36,8 @@ hdiutil create \
     -ov \
     -format UDZO \
     "${DIST_DIR}/${DMG_NAME}"
+
+deactivate 2>/dev/null || true
 
 echo ""
 echo "Done! DMG is at: ${DIST_DIR}/${DMG_NAME}"

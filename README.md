@@ -69,16 +69,20 @@ python automator.py
 
 ## GUI Workflow
 
-1. **Launch Browser & Login** — opens Chrome to WhatsApp Web
-2. **Scan QR / confirm session** — only required on first run; the profile is persisted
-3. **I'm Logged In ✓** — confirms login and enables the Start button
-4. **Sample CSV** — downloads `contacts.example.csv` as a starting template
-5. **Import CSV / Excel** — loads your contacts file; the table populates dynamically
-6. **Edit template** — write or paste your message in the right panel; `{placeholders}` are shown automatically
-7. **Start ▶** — begins sending; progress bar and log update in real time
-8. **Stop ■** — stops after the current message completes
+The GUI uses a VSCode-inspired two-panel layout. **CONTACTS** is on the left, **MESSAGE TEMPLATE** on the right, separated by a draggable sash. An **OUTPUT** log sits below, and a colour-coded **status bar** runs along the very bottom.
 
-The GUI supports Dark / Light / System themes and keeps the log capped at 1 000 lines.
+1. **⚡ Launch & Login** — opens Chrome with the persisted WABulker profile and navigates to WhatsApp Web
+2. **Scan QR / confirm session** — only required on first run; subsequent launches reuse the saved session
+3. **✓ Logged In** — confirms login and enables the Start button
+4. **⬇ Sample** — downloads `contacts.example.csv` as a starting template (in the CONTACTS toolbar)
+5. **↑ Import** — loads a CSV or Excel contacts file; the table and contact-count badge update automatically
+6. **+ Add / ✕ Delete** — add a new row or remove the selected row directly in the table
+7. **Edit template** — write or paste your message in the MESSAGE TEMPLATE panel; available `{placeholders}` are shown automatically below the editor
+8. **↑ Save Template** — persists the current template to `message.txt`
+9. **▶ Start** — begins sending; progress bar and OUTPUT log update in real time
+10. **■ Stop** — stops gracefully after the current message finishes
+
+The theme selector (Dark / Light / System) is in the top-right corner. The log is capped at 1 000 lines.
 
 ---
 
@@ -139,10 +143,24 @@ To add a new field:
 |----------|---------|-------------|
 | `DELAY` | `10` | Seconds to wait for the Send button to appear per message (configurable in the GUI settings bar) |
 | `SEND_DELAY` | `2` | Seconds to wait after clicking Send before moving to the next contact (configurable in the GUI settings bar) |
+| `COUNTRY_CODE` | `91` | Prepended to 10-digit phone numbers (configurable in the GUI settings bar) — see note below |
 | `PRE_CLICK_DELAY` | `1` | Fixed pause before clicking Send so the button registers correctly |
 | `POST_SEND_DELAY` | `3` | Fixed pause after Send to allow WhatsApp Web to process before navigating away |
 | `CHROME_USER_DATA_DIR` | OS-specific | Chrome profile directory used to persist the WhatsApp Web session; automatically set per platform |
 <!-- END AUTO-GENERATED -->
+
+### Country Code Setting
+
+The **Country Code** field in the GUI settings bar allows you to prepend a country code to 10-digit phone numbers automatically.
+
+- **Default:** `91` (India)
+- **Format:** Digits only (e.g. `91`, `1`, `44`) — do NOT include the `+` sign
+- **Behavior:**
+  - Numbers with exactly 10 digits: country code is prepended (e.g. `9876543210` becomes `919876543210`)
+  - Numbers with 11–15 digits: sent as-is (already formatted with country code)
+  - **Leave blank** to send all numbers as-is (useful if your contacts file has pre-formatted numbers with country codes)
+
+### Chrome Profile
 
 The Chrome profile location is automatically set based on your operating system:
 
@@ -218,8 +236,12 @@ Tests cover `automator.py` only (Selenium operations, contact loading, phone num
 |-------|-----|
 | "Profile is already in use" | Close all Chrome windows before launching |
 | Send button not found | Check internet connection; dismiss any WhatsApp alerts or pop-ups |
-| Contact not receiving the message | Ensure the number is a valid Indian mobile number registered on WhatsApp |
+| No internet when launching | Chrome will open but show a "No internet connection" message. Connect to internet, navigate to web.whatsapp.com manually, then click "✓ Logged In". |
+| Contact not receiving the message | Ensure the number is a valid mobile number registered on WhatsApp |
 | Number skipped with "invalid" warning | Remove spaces, dashes, or `+` from the phone number in your contacts file |
+| Country Code showing wrong format | Enter digits only (e.g. `91` not `+91`). The `+` is added automatically. |
 | Placeholder not replaced | Check that `{ColumnName}` in `message.txt` matches the column header exactly (case-sensitive) |
+| Unresolved placeholders warning | Check that all `{ColumnName}` references in your template match actual column headers in your contacts file (case-sensitive) |
+| "Delay must be whole numbers" warning | Delay fields accept integers only (e.g. `10` not `10.5`). |
 | ChromeDriver error | Update Google Chrome to the latest version |
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` |
