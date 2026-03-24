@@ -214,5 +214,97 @@ class TestRetryLogic(unittest.TestCase):
         self.assertEqual(mock_wait.return_value.until.call_count, 3)
 
 
+# ── _is_not_on_whatsapp() / skip-vs-retry tests ────────────────────────────────
+
+class TestNotOnWhatsApp(unittest.TestCase):
+    """Tests for the _is_not_on_whatsapp() hook inside send_messages().
+
+    These tests are INTENTIONALLY FAILING until _is_not_on_whatsapp() is
+    implemented in automator.py.  They define the required interface:
+
+        automator._is_not_on_whatsapp(driver) -> bool
+
+    When it returns True  → the contact is not on WhatsApp; skip immediately
+                            (no retries; driver.get called only once).
+    When it returns False → failure is transient; retry the normal 3 times.
+    """
+
+    def _make_contact(self, name="Test User", number="9999999999"):
+        return {"name": name, "number": number, "fields": {"Name": name}}
+
+    def test_not_on_whatsapp_skips_immediately(self):
+        """When _is_not_on_whatsapp() is True, send_messages() must NOT retry.
+
+        driver.get() is called exactly once (the initial attempt) and the log
+        must contain 'not registered on WhatsApp'.
+        """
+        from selenium.common.exceptions import TimeoutException
+
+        driver = MagicMock()
+        log_calls = []
+
+        with patch("automator._is_not_on_whatsapp", return_value=True), \
+             patch("automator.WebDriverWait") as mock_wait, \
+             patch("automator.sleep"):
+
+            mock_wait.return_value.until.side_effect = TimeoutException("timeout")
+
+            send_messages(
+                driver,
+                [self._make_contact()],
+                "Hello {Name}",
+                log_fn=log_calls.append,
+            )
+
+        # No retries — WebDriverWait.until must have been called exactly once.
+        self.assertEqual(
+            mock_wait.return_value.until.call_count,
+            1,
+            f"Expected 1 attempt (no retries) when not on WhatsApp, "
+            f"got {mock_wait.return_value.until.call_count}. "
+            f"Log: {log_calls}",
+        )
+
+        combined = " ".join(log_calls)
+        self.assertIn(
+            "not registered on WhatsApp",
+            combined,
+            f"Expected 'not registered on WhatsApp' in log output, got: {log_calls}",
+        )
+
+    def test_transient_failure_still_retries(self):
+        """When _is_not_on_whatsapp() is False, send_messages() must retry 3 times.
+
+        A plain TimeoutException (no 'not on WhatsApp' signal) is a transient
+        network/loading error; the existing retry loop must run all 3 attempts.
+        """
+        from selenium.common.exceptions import TimeoutException
+
+        driver = MagicMock()
+        log_calls = []
+
+        with patch("automator._is_not_on_whatsapp", return_value=False), \
+             patch("automator.WebDriverWait") as mock_wait, \
+             patch("automator.sleep"):
+
+            mock_wait.return_value.until.side_effect = TimeoutException("timeout")
+
+            send_messages(
+                driver,
+                [self._make_contact()],
+                "Hello {Name}",
+                log_fn=log_calls.append,
+            )
+
+        # All 3 retry attempts must have been made.
+        self.assertEqual(
+            mock_wait.return_value.until.call_count,
+            3,
+            f"Expected 3 retry attempts for a transient failure, "
+            f"got {mock_wait.return_value.until.call_count}. "
+            f"Log: {log_calls}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,31 @@
 
 Send personalised bulk WhatsApp messages via WhatsApp Web automation using Selenium and Chrome.
 
+---
+
+## What's New in v2.0
+
+### Non-WhatsApp Number Detection
+Numbers not registered on WhatsApp are now **skipped immediately** — no retries. Previously the app wasted ~30 seconds per contact retrying 3 times against a condition that could never succeed. The log now shows:
+```
+Skipping {Name} ({number}): number not registered on WhatsApp.
+```
+Numbers with transient failures (network timeout, slow page load) still retry up to 3 times as before.
+
+### VSCode-Inspired UI
+Complete redesign with a **Modern Dark Pro** colour palette, draggable CONTACTS / MESSAGE TEMPLATE panel sash, icon buttons (⚡ ✓ ▶ ■), colour-coded status bar, and output log capped at 1 000 lines.
+
+### Country Code Field
+Settings bar includes a **Country Code** input (default: `91` for India). 10-digit numbers are automatically prefixed; numbers already 11–15 digits are sent as-is. Leave blank to send all numbers without modification.
+
+### Security Fixes
+- Template length capped at 65 536 characters (WhatsApp's own limit) in both Save and Send
+- Exception messages sanitised — type name only, no raw stack traces shown to users
+- File picker restricted to CSV / XLSX — no "All Files" option
+- Race condition in browser launch fixed; `driver` assigned atomically before navigation
+
+---
+
 Two entry points are available:
 
 | Entry point | How to run | Best for |
@@ -226,7 +251,7 @@ Tests cover `automator.py` only (Selenium operations, contact loading, phone num
 5. Opens Chrome using the configured profile (persists WhatsApp Web login between runs).
 6. Navigates to `web.whatsapp.com/send?phone=<number>&text=<message>` for each contact.
 7. Waits up to `DELAY` seconds for the Send button, clicks it, then waits `SEND_DELAY` seconds before the next contact.
-8. Retries up to 3 times on failure; stops immediately if the Stop button is clicked.
+8. On failure, checks whether the number is not on WhatsApp — if so, skips immediately with no retries. Otherwise retries up to 3 times (transient failures only); stops immediately if the Stop button is clicked.
 
 ---
 
@@ -238,6 +263,7 @@ Tests cover `automator.py` only (Selenium operations, contact loading, phone num
 | Send button not found | Check internet connection; dismiss any WhatsApp alerts or pop-ups |
 | No internet when launching | Chrome will open but show a "No internet connection" message. Connect to internet, navigate to web.whatsapp.com manually, then click "✓ Logged In". |
 | Contact not receiving the message | Ensure the number is a valid mobile number registered on WhatsApp |
+| Log shows "number not registered on WhatsApp" | The number exists but is not on WhatsApp — it is skipped immediately with no retries. Verify the number in WhatsApp on your phone. |
 | Number skipped with "invalid" warning | Remove spaces, dashes, or `+` from the phone number in your contacts file |
 | Country Code showing wrong format | Enter digits only (e.g. `91` not `+91`). The `+` is added automatically. |
 | Placeholder not replaced | Check that `{ColumnName}` in `message.txt` matches the column header exactly (case-sensitive) |

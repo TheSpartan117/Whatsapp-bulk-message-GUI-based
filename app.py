@@ -486,7 +486,7 @@ class App(ctk.CTk):
             messagebox.showerror("Import Error", str(e))
             return
         except Exception as e:
-            messagebox.showerror("Import Error", f"Could not load file:\n{e}")
+            messagebox.showerror("Import Error", f"Could not load file:\n{type(e).__name__}")
             return
 
         if not contacts:
@@ -595,8 +595,15 @@ class App(ctk.CTk):
         self.contacts_count_lbl.configure(text=f" {n} " if n else "")
 
     # ── Template: save ────────────────────────────────────────────────────────
+    _TEMPLATE_MAX_CHARS = 65_536  # WhatsApp's message length cap
+
     def _save_template(self):
         content = self.template_box.get("1.0", "end-1c")
+        if len(content) > self._TEMPLATE_MAX_CHARS:
+            messagebox.showwarning("Template Too Long",
+                                   f"Template exceeds {self._TEMPLATE_MAX_CHARS:,} characters. "
+                                   "Please shorten it before saving.")
+            return
         try:
             with open(MESSAGE_FILE, "w", encoding="utf-8") as f:
                 f.write(content)
@@ -635,8 +642,9 @@ class App(ctk.CTk):
                 self.after(0, lambda: self.set_state(IDLE))
                 return
 
-            # Assign driver on the main thread to avoid cross-thread visibility issues
-            self.after(0, lambda d=drv: setattr(self, 'driver', d))
+            # Assign driver directly — self.driver is a plain Python attribute,
+            # not a Tkinter widget, so assigning from a background thread is safe.
+            self.driver = drv
 
             # Step 2 — navigate to WhatsApp Web (network errors keep BROWSER_OPEN)
             try:
@@ -679,6 +687,11 @@ class App(ctk.CTk):
             messagebox.showwarning("Empty Template",
                                    "Please write a message template first.")
             return
+        if len(template) > self._TEMPLATE_MAX_CHARS:
+            messagebox.showwarning("Template Too Long",
+                                   f"Template exceeds {self._TEMPLATE_MAX_CHARS:,} characters. "
+                                   "Please shorten it before sending.")
+            return
 
         # Validate settings BEFORE committing state to avoid brief UI glitch
         try:
@@ -701,6 +714,10 @@ class App(ctk.CTk):
         if _delay > _MAX_DELAY or _send_delay > _MAX_DELAY:
             messagebox.showwarning("Invalid Settings",
                                    f"Delay values cannot exceed {_MAX_DELAY} seconds.")
+            return
+        if self.driver is None:
+            messagebox.showwarning("Browser Not Ready",
+                                   "Please launch the browser and log in before sending.")
             return
 
         self.stop_event.clear()
